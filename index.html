@@ -80,445 +80,444 @@
     </div>
   </div>
   <script type="module">
-    import * as THREE from 'https://cdn.skypack.dev/three';
-
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
     console.log('Three.js loaded:', THREE);
 
-    // ゲーム状態
-    let score = 0;
-    let playerHealth = 100;
-    let gameOver = false;
-    let isAttacking = false;
-    let attackCooldown = 0;
+// ゲーム状態
+let score = 0;
+let playerHealth = 100;
+let gameOver = false;
+let isAttacking = false;
+let attackCooldown = 0;
 
-    // シーンとカメラとレンダラー
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x87CEEB, 10, 100);
+// シーンとカメラとレンダラー
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x87CEEB, 10, 100);
+
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 1000
+);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+console.log('Renderer created and added to DOM');
+
+// スカイボックス
+const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
+const skyMaterial = new THREE.MeshBasicMaterial({
+  color: 0x87CEEB,
+  side: THREE.BackSide
+});
+const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+scene.add(sky);
+
+// 床
+const floorGeometry = new THREE.PlaneGeometry(100, 100);
+const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+
+// グリッドヘルパー
+const gridHelper = new THREE.GridHelper(100, 50, 0x444444, 0x222222);
+scene.add(gridHelper);
+
+// プレイヤー
+const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
+const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff });
+const player = new THREE.Mesh(playerGeometry, playerMaterial);
+player.position.set(0, 1, 0);
+scene.add(player);
+
+// 斬撃エフェクト
+const slashGeometry = new THREE.PlaneGeometry(3, 3);
+const slashMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0,
+  side: THREE.DoubleSide
+});
+const slashEffect = new THREE.Mesh(slashGeometry, slashMaterial);
+scene.add(slashEffect);
+
+// 敵リスト
+const enemies = [];
+
+// 敵クラス
+class Enemy {
+  constructor() {
+    const size = 0.8 + Math.random() * 0.4;
+    const speed = 0.02 + Math.random() * 0.03;
+    const health = Math.floor(50 + Math.random() * 50);
     
-    const camera = new THREE.PerspectiveCamera(
-      75, window.innerWidth / window.innerHeight, 0.1, 1000
-    );
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-    
-    console.log('Renderer created and added to DOM');
-
-    // スカイボックス
-    const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
-    const skyMaterial = new THREE.MeshBasicMaterial({
-      color: 0x87CEEB,
-      side: THREE.BackSide
-    });
-    const sky = new THREE.Mesh(skyGeometry, skyMaterial);
-    scene.add(sky);
-
-    // 床
-    const floorGeometry = new THREE.PlaneGeometry(100, 100);
-    const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-
-    // グリッドヘルパー
-    const gridHelper = new THREE.GridHelper(100, 50, 0x444444, 0x222222);
-    scene.add(gridHelper);
-
-    // プレイヤー
-    const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
-    const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff });
-    const player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.position.set(0, 1, 0);
-    scene.add(player);
-
-    // 斬撃エフェクト
-    const slashGeometry = new THREE.PlaneGeometry(3, 3);
-    const slashMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide
-    });
-    const slashEffect = new THREE.Mesh(slashGeometry, slashMaterial);
-    scene.add(slashEffect);
-
-    // 敵リスト
-    const enemies = [];
-
-    // 敵クラス
-    class Enemy {
-      constructor() {
-        const size = 0.8 + Math.random() * 0.4;
-        const speed = 0.02 + Math.random() * 0.03;
-        const health = Math.floor(50 + Math.random() * 50);
-        
-        const geometry = new THREE.BoxGeometry(size, size * 2, size);
-        const material = new THREE.MeshBasicMaterial({ 
-          color: 0xff0000
-        });
-        
-        this.mesh = new THREE.Mesh(geometry, material);
-        
-        const radius = 15 + Math.random() * 10;
-        const angle = Math.random() * Math.PI * 2;
-        this.mesh.position.x = player.position.x + Math.cos(angle) * radius;
-        this.mesh.position.z = player.position.z + Math.sin(angle) * radius;
-        this.mesh.position.y = size;
-        
-        this.speed = speed;
-        this.damage = Math.floor((0.05 - speed) * 400);
-        this.health = health;
-        this.maxHealth = health;
-        this.attackCooldown = 0;
-        this.isAlive = true;
-        
-        scene.add(this.mesh);
-      }
-      
-      update(deltaTime) {
-        if (!this.isAlive || gameOver) return;
-        
-        const direction = new THREE.Vector3();
-        direction.subVectors(player.position, this.mesh.position).normalize();
-        this.mesh.position.add(direction.multiplyScalar(this.speed));
-        
-        const distance = this.mesh.position.distanceTo(player.position);
-        
-        if (distance < 2 && this.attackCooldown <= 0) {
-          damagePlayer(this.damage);
-          this.attackCooldown = 2;
-          
-          // 攻撃エフェクト
-          this.mesh.material.emissive = new THREE.Color(0xffffff);
-          setTimeout(() => {
-            if (this.mesh.material) this.mesh.material.emissive = new THREE.Color(0x000000);
-          }, 100);
-        }
-        
-        this.attackCooldown = Math.max(0, this.attackCooldown - deltaTime);
-      }
-      
-      takeDamage(damage) {
-        this.health -= damage;
-        if (this.health <= 0 && this.isAlive) {
-          this.isAlive = false;
-          score += Math.floor(this.maxHealth / 10);
-          updateScore();
-          
-          // 死亡エフェクト
-          const particles = [];
-          for (let i = 0; i < 10; i++) {
-            const particleGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-            const particleMaterial = new THREE.MeshBasicMaterial({ 
-              color: this.mesh.material.color 
-            });
-            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-            particle.position.copy(this.mesh.position);
-            particle.velocity = new THREE.Vector3(
-              (Math.random() - 0.5) * 0.3,
-              Math.random() * 0.3,
-              (Math.random() - 0.5) * 0.3
-            );
-            scene.add(particle);
-            particles.push(particle);
-            
-            setTimeout(() => {
-              scene.remove(particle);
-            }, 1000);
-          }
-          
-          scene.remove(this.mesh);
-          return true;
-        }
-        
-        // ダメージエフェクト
-        this.mesh.material.emissive = new THREE.Color(0xffffff);
-        setTimeout(() => {
-          if (this.mesh.material) this.mesh.material.emissive = new THREE.Color(0x000000);
-        }, 100);
-        
-        return false;
-      }
-    }
-
-    // 敵を生成する関数
-    function spawnEnemy() {
-      if (gameOver) return;
-      const enemy = new Enemy();
-      enemies.push(enemy);
-      playSound('spawn');
-    }
-
-    // 3秒ごとに敵出現
-    setInterval(spawnEnemy, 3000);
-    
-    // 初期敵生成
-    for (let i = 0; i < 3; i++) {
-      setTimeout(() => spawnEnemy(), i * 1000);
-    }
-
-    // ライト
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(10, 20, 10);
-    scene.add(directionalLight);
-
-    // カメラ初期位置
-    camera.position.set(0, 10, 15);
-    camera.lookAt(0, 0, 0);
-
-    // キー入力制御
-    const keys = {};
-    document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-    document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-    
-    // マウスクリックで攻撃
-    document.addEventListener('click', (e) => {
-      if (gameOver || isAttacking || attackCooldown > 0) return;
-      
-      isAttacking = true;
-      attackCooldown = 0.5;
-      
-      // マウス位置から攻撃方向を計算
-      const mouse = new THREE.Vector2(
-        (e.clientX / window.innerWidth) * 2 - 1,
-        -(e.clientY / window.innerHeight) * 2 + 1
-      );
-      
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(mouse, camera);
-      
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -player.position.y);
-      const intersection = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, intersection);
-      
-      const direction = new THREE.Vector3();
-      direction.subVectors(intersection, player.position).normalize();
-      
-      // 斬撃エフェクトを表示
-      slashEffect.position.copy(player.position);
-      slashEffect.position.add(direction.multiplyScalar(2));
-      slashEffect.position.y = player.position.y;
-      slashEffect.lookAt(intersection);
-      slashEffect.material.opacity = 0.8;
-      
-      playSound('attack');
-      
-      // 斬撃エフェクトをフェードアウト
-      const fadeOut = setInterval(() => {
-        slashEffect.material.opacity -= 0.1;
-        if (slashEffect.material.opacity <= 0) {
-          clearInterval(fadeOut);
-          isAttacking = false;
-        }
-      }, 50);
-      
-      // 当たり判定
-      enemies.forEach((enemy, index) => {
-        if (!enemy.isAlive) return;
-        
-        const distance = enemy.mesh.position.distanceTo(slashEffect.position);
-        if (distance < 3) {
-          const killed = enemy.takeDamage(50);
-          if (killed) {
-            enemies.splice(index, 1);
-            playSound('hit');
-          }
-        }
-      });
+    const geometry = new THREE.BoxGeometry(size, size * 2, size);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0xff0000
     });
     
-    // ゲーム関数
-    function damagePlayer(damage) {
-      if (gameOver) return;
+    this.mesh = new THREE.Mesh(geometry, material);
+    
+    const radius = 15 + Math.random() * 10;
+    const angle = Math.random() * Math.PI * 2;
+    this.mesh.position.x = player.position.x + Math.cos(angle) * radius;
+    this.mesh.position.z = player.position.z + Math.sin(angle) * radius;
+    this.mesh.position.y = size;
+    
+    this.speed = speed;
+    this.damage = Math.floor((0.05 - speed) * 400);
+    this.health = health;
+    this.maxHealth = health;
+    this.attackCooldown = 0;
+    this.isAlive = true;
+    
+    scene.add(this.mesh);
+  }
+  
+  update(deltaTime) {
+    if (!this.isAlive || gameOver) return;
+    
+    const direction = new THREE.Vector3();
+    direction.subVectors(player.position, this.mesh.position).normalize();
+    this.mesh.position.add(direction.multiplyScalar(this.speed));
+    
+    const distance = this.mesh.position.distanceTo(player.position);
+    
+    if (distance < 2 && this.attackCooldown <= 0) {
+      damagePlayer(this.damage);
+      this.attackCooldown = 2;
       
-      playerHealth = Math.max(0, playerHealth - damage);
-      updateHealthBar();
-      
-      // ダメージエフェクト
-      player.material.emissive = new THREE.Color(0xff0000);
+      // 攻撃エフェクト
+      this.mesh.material.emissive = new THREE.Color(0xffffff);
       setTimeout(() => {
-        player.material.emissive = new THREE.Color(0x000000);
-      }, 200);
-      
-      playSound('playerHit');
-      
-      if (playerHealth <= 0) {
-        gameOver = true;
-        document.getElementById('game-over').style.display = 'block';
-        document.getElementById('final-score').textContent = `Final Score: ${score}`;
-      }
+        if (this.mesh.material) this.mesh.material.emissive = new THREE.Color(0x000000);
+      }, 100);
     }
     
-    function updateHealthBar() {
-      const healthPercent = (playerHealth / 100) * 100;
-      document.getElementById('health-fill').style.width = healthPercent + '%';
-    }
-    
-    function updateScore() {
-      document.getElementById('score').textContent = `Score: ${score}`;
-    }
-    
-    // 音声システム（Web Audio APIを使用）
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    
-    function playSound(type) {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+    this.attackCooldown = Math.max(0, this.attackCooldown - deltaTime);
+  }
+  
+  takeDamage(damage) {
+    this.health -= damage;
+    if (this.health <= 0 && this.isAlive) {
+      this.isAlive = false;
+      score += Math.floor(this.maxHealth / 10);
+      updateScore();
       
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      switch(type) {
-        case 'spawn':
-          oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
-          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.2);
-          break;
-          
-        case 'attack':
-          oscillator.type = 'sawtooth';
-          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
-          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.1);
-          break;
-          
-        case 'hit':
-          oscillator.type = 'square';
-          oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
-          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.05);
-          break;
-          
-        case 'playerHit':
-          oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
-          oscillator.frequency.setValueAtTime(50, audioContext.currentTime + 0.1);
-          gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.2);
-          break;
-      }
-    }
-    
-    // ミニマップ設定
-    const minimapCanvas = document.getElementById('minimap');
-    const minimapCtx = minimapCanvas.getContext('2d');
-    minimapCanvas.width = 150;
-    minimapCanvas.height = 150;
-    
-    function updateMinimap() {
-      minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      minimapCtx.fillRect(0, 0, 150, 150);
-      
-      // グリッド
-      minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      minimapCtx.lineWidth = 1;
-      for (let i = 0; i <= 5; i++) {
-        const pos = i * 30;
-        minimapCtx.beginPath();
-        minimapCtx.moveTo(pos, 0);
-        minimapCtx.lineTo(pos, 150);
-        minimapCtx.stroke();
-        minimapCtx.beginPath();
-        minimapCtx.moveTo(0, pos);
-        minimapCtx.lineTo(150, pos);
-        minimapCtx.stroke();
-      }
-      
-      // プレイヤー
-      const px = (player.position.x + 50) / 100 * 150;
-      const pz = (player.position.z + 50) / 100 * 150;
-      minimapCtx.fillStyle = '#00aaff';
-      minimapCtx.beginPath();
-      minimapCtx.arc(px, pz, 5, 0, Math.PI * 2);
-      minimapCtx.fill();
-      
-      // 敵
-      minimapCtx.fillStyle = '#ff3333';
-      enemies.forEach(enemy => {
-        if (!enemy.isAlive) return;
-        const ex = (enemy.mesh.position.x + 50) / 100 * 150;
-        const ez = (enemy.mesh.position.z + 50) / 100 * 150;
-        minimapCtx.beginPath();
-        minimapCtx.arc(ex, ez, 3, 0, Math.PI * 2);
-        minimapCtx.fill();
-      });
-    }
-
-    // 時間管理
-    const clock = new THREE.Clock();
-    
-    // アニメーションループ
-    function animate() {
-      requestAnimationFrame(animate);
-      
-      if (gameOver) {
-        renderer.render(scene, camera);
-        return;
-      }
-      
-      const deltaTime = clock.getDelta();
-      
-      // プレイヤー移動
-      const speed = 0.15;
-      const moveVector = new THREE.Vector3();
-      if (keys['w']) moveVector.z -= speed;
-      if (keys['s']) moveVector.z += speed;
-      if (keys['a']) moveVector.x -= speed;
-      if (keys['d']) moveVector.x += speed;
-      
-      if (moveVector.length() > 0) {
-        moveVector.normalize().multiplyScalar(speed);
-        player.position.add(moveVector);
+      // 死亡エフェクト
+      const particles = [];
+      for (let i = 0; i < 10; i++) {
+        const particleGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+          color: this.mesh.material.color 
+        });
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(this.mesh.position);
+        particle.velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.3,
+          Math.random() * 0.3,
+          (Math.random() - 0.5) * 0.3
+        );
+        scene.add(particle);
+        particles.push(particle);
         
-        // 境界チェック
-        player.position.x = Math.max(-45, Math.min(45, player.position.x));
-        player.position.z = Math.max(-45, Math.min(45, player.position.z));
+        setTimeout(() => {
+          scene.remove(particle);
+        }, 1000);
       }
       
-      // 攻撃クールダウン
-      attackCooldown = Math.max(0, attackCooldown - deltaTime);
-      
-      // 敵の更新
-      enemies.forEach(enemy => {
-        enemy.update(deltaTime);
-      });
-      
-      // カメラ追従（スムーズ）
-      const cameraTarget = new THREE.Vector3(
-        player.position.x + 5,
-        player.position.y + 8,
-        player.position.z + 10
-      );
-      camera.position.lerp(cameraTarget, 0.1);
-      camera.lookAt(player.position);
-      
-      // ミニマップ更新
-      updateMinimap();
-      
-      renderer.render(scene, camera);
+      scene.remove(this.mesh);
+      return true;
     }
+    
+    // ダメージエフェクト
+    this.mesh.material.emissive = new THREE.Color(0xffffff);
+    setTimeout(() => {
+      if (this.mesh.material) this.mesh.material.emissive = new THREE.Color(0x000000);
+    }, 100);
+    
+    return false;
+  }
+}
 
-    animate();
-    console.log('Game started');
+// 敵を生成する関数
+function spawnEnemy() {
+  if (gameOver) return;
+  const enemy = new Enemy();
+  enemies.push(enemy);
+  playSound('spawn');
+}
 
-    // ウィンドウサイズ調整
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  </script>
+// 3秒ごとに敵出現
+setInterval(spawnEnemy, 3000);
+
+// 初期敵生成
+for (let i = 0; i < 3; i++) {
+  setTimeout(() => spawnEnemy(), i * 1000);
+}
+
+// ライト
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+directionalLight.position.set(10, 20, 10);
+scene.add(directionalLight);
+
+// カメラ初期位置
+camera.position.set(0, 10, 15);
+camera.lookAt(0, 0, 0);
+
+// キー入力制御
+const keys = {};
+document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// マウスクリックで攻撃
+document.addEventListener('click', (e) => {
+  if (gameOver || isAttacking || attackCooldown > 0) return;
+  
+  isAttacking = true;
+  attackCooldown = 0.5;
+  
+  // マウス位置から攻撃方向を計算
+  const mouse = new THREE.Vector2(
+    (e.clientX / window.innerWidth) * 2 - 1,
+    -(e.clientY / window.innerHeight) * 2 + 1
+  );
+  
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -player.position.y);
+  const intersection = new THREE.Vector3();
+  raycaster.ray.intersectPlane(plane, intersection);
+  
+  const direction = new THREE.Vector3();
+  direction.subVectors(intersection, player.position).normalize();
+  
+  // 斬撃エフェクトを表示
+  slashEffect.position.copy(player.position);
+  slashEffect.position.add(direction.multiplyScalar(2));
+  slashEffect.position.y = player.position.y;
+  slashEffect.lookAt(intersection);
+  slashEffect.material.opacity = 0.8;
+  
+  playSound('attack');
+  
+  // 斬撃エフェクトをフェードアウト
+  const fadeOut = setInterval(() => {
+    slashEffect.material.opacity -= 0.1;
+    if (slashEffect.material.opacity <= 0) {
+      clearInterval(fadeOut);
+      isAttacking = false;
+    }
+  }, 50);
+  
+  // 当たり判定
+  enemies.forEach((enemy, index) => {
+    if (!enemy.isAlive) return;
+    
+    const distance = enemy.mesh.position.distanceTo(slashEffect.position);
+    if (distance < 3) {
+      const killed = enemy.takeDamage(50);
+      if (killed) {
+        enemies.splice(index, 1);
+        playSound('hit');
+      }
+    }
+  });
+});
+
+// ゲーム関数
+function damagePlayer(damage) {
+  if (gameOver) return;
+  
+  playerHealth = Math.max(0, playerHealth - damage);
+  updateHealthBar();
+  
+  // ダメージエフェクト
+  player.material.emissive = new THREE.Color(0xff0000);
+  setTimeout(() => {
+    player.material.emissive = new THREE.Color(0x000000);
+  }, 200);
+  
+  playSound('playerHit');
+  
+  if (playerHealth <= 0) {
+    gameOver = true;
+    document.getElementById('game-over').style.display = 'block';
+    document.getElementById('final-score').textContent = Final Score: ${score};
+  }
+}
+
+function updateHealthBar() {
+  const healthPercent = (playerHealth / 100) * 100;
+  document.getElementById('health-fill').style.width = healthPercent + '%';
+}
+
+function updateScore() {
+  document.getElementById('score').textContent = Score: ${score};
+}
+
+// 音声システム（Web Audio APIを使用）
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(type) {
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  switch(type) {
+    case 'spawn':
+      oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+      break;
+      
+    case 'attack':
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+      break;
+      
+    case 'hit':
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.05);
+      break;
+      
+    case 'playerHit':
+      oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(50, audioContext.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+      break;
+  }
+}
+
+// ミニマップ設定
+const minimapCanvas = document.getElementById('minimap');
+const minimapCtx = minimapCanvas.getContext('2d');
+minimapCanvas.width = 150;
+minimapCanvas.height = 150;
+
+function updateMinimap() {
+  minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+  minimapCtx.fillRect(0, 0, 150, 150);
+  
+  // グリッド
+  minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  minimapCtx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const pos = i * 30;
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(pos, 0);
+    minimapCtx.lineTo(pos, 150);
+    minimapCtx.stroke();
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(0, pos);
+    minimapCtx.lineTo(150, pos);
+    minimapCtx.stroke();
+  }
+  
+  // プレイヤー
+  const px = (player.position.x + 50) / 100 * 150;
+  const pz = (player.position.z + 50) / 100 * 150;
+  minimapCtx.fillStyle = '#00aaff';
+  minimapCtx.beginPath();
+  minimapCtx.arc(px, pz, 5, 0, Math.PI * 2);
+  minimapCtx.fill();
+  
+  // 敵
+  minimapCtx.fillStyle = '#ff3333';
+  enemies.forEach(enemy => {
+    if (!enemy.isAlive) return;
+    const ex = (enemy.mesh.position.x + 50) / 100 * 150;
+    const ez = (enemy.mesh.position.z + 50) / 100 * 150;
+    minimapCtx.beginPath();
+    minimapCtx.arc(ex, ez, 3, 0, Math.PI * 2);
+    minimapCtx.fill();
+  });
+}
+
+// 時間管理
+const clock = new THREE.Clock();
+
+// アニメーションループ
+function animate() {
+  requestAnimationFrame(animate);
+  
+  if (gameOver) {
+    renderer.render(scene, camera);
+    return;
+  }
+  
+  const deltaTime = clock.getDelta();
+  
+  // プレイヤー移動
+  const speed = 0.15;
+  const moveVector = new THREE.Vector3();
+  if (keys['w']) moveVector.z -= speed;
+  if (keys['s']) moveVector.z += speed;
+  if (keys['a']) moveVector.x -= speed;
+  if (keys['d']) moveVector.x += speed;
+  
+  if (moveVector.length() > 0) {
+    moveVector.normalize().multiplyScalar(speed);
+    player.position.add(moveVector);
+    
+    // 境界チェック
+    player.position.x = Math.max(-45, Math.min(45, player.position.x));
+    player.position.z = Math.max(-45, Math.min(45, player.position.z));
+  }
+  
+  // 攻撃クールダウン
+  attackCooldown = Math.max(0, attackCooldown - deltaTime);
+  
+  // 敵の更新
+  enemies.forEach(enemy => {
+    enemy.update(deltaTime);
+  });
+  
+  // カメラ追従（スムーズ）
+  const cameraTarget = new THREE.Vector3(
+    player.position.x + 5,
+    player.position.y + 8,
+    player.position.z + 10
+  );
+  camera.position.lerp(cameraTarget, 0.1);
+  camera.lookAt(player.position);
+  
+  // ミニマップ更新
+  updateMinimap();
+  
+  renderer.render(scene, camera);
+}
+
+animate();
+console.log('Game started');
+
+// ウィンドウサイズ調整
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 </body>
 </html>
