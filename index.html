@@ -1,0 +1,81 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Three.js アクションゲームベース</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three';
+
+    // シーンとカメラとレンダラー
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      75, window.innerWidth / window.innerHeight, 0.1, 1000
+    );
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 床
+    const floorGeometry = new THREE.PlaneGeometry(100, 100);
+    const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    // プレイヤー
+    const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
+    const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff });
+    const player = new THREE.Mesh(playerGeometry, playerMaterial);
+    player.position.y = 1;
+    scene.add(player);
+
+    // ライト
+    const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+    scene.add(light);
+
+    // カメラ初期位置
+    camera.position.set(0, 5, 10);
+    camera.lookAt(player.position);
+
+    // キー入力制御
+    const keys = {};
+    document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+    document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+    // アニメーションループ
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const speed = 0.1;
+      if (keys['w']) player.position.z -= speed;
+      if (keys['s']) player.position.z += speed;
+      if (keys['a']) player.position.x -= speed;
+      if (keys['d']) player.position.x += speed;
+
+      // カメラ追従（プレイヤーの後ろ斜め上に固定）
+      camera.position.x = player.position.x + 5;
+      camera.position.y = player.position.y + 5;
+      camera.position.z = player.position.z + 10;
+      camera.lookAt(player.position);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ウィンドウサイズ調整
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
