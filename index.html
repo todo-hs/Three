@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,11 +7,10 @@
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
   </style>
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
 </head>
 <body>
-  <script type="module">
-    import * as THREE from 'https://cdn.skypack.dev/three';
-
+  <script>
     // シーンとカメラとレンダラー
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
@@ -59,7 +57,6 @@
       if (keys['a']) player.position.x -= speed;
       if (keys['d']) player.position.x += speed;
 
-      // カメラ追従（プレイヤーの後ろ斜め上に固定）
       camera.position.x = player.position.x + 5;
       camera.position.y = player.position.y + 5;
       camera.position.z = player.position.z + 10;
@@ -70,7 +67,6 @@
 
     animate();
 
-    // ウィンドウサイズ調整
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
