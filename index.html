@@ -7,10 +7,11 @@
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
   </style>
-  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
 </head>
 <body>
-  <script>
+  <script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three';
+
     // シーンとカメラとレンダラー
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
@@ -33,6 +34,28 @@
     const player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.position.y = 1;
     scene.add(player);
+
+    // 敵リスト
+    const enemies = [];
+
+    // 敵を生成する関数
+    function spawnEnemy() {
+      const enemyGeometry = new THREE.BoxGeometry(1, 2, 1);
+      const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+
+      const radius = 20;
+      const angle = Math.random() * Math.PI * 2;
+      enemy.position.x = Math.cos(angle) * radius;
+      enemy.position.z = Math.sin(angle) * radius;
+      enemy.position.y = 1;
+
+      scene.add(enemy);
+      enemies.push(enemy);
+    }
+
+    // 3秒ごとに敵出現
+    setInterval(spawnEnemy, 3000);
 
     // ライト
     const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
@@ -57,6 +80,14 @@
       if (keys['a']) player.position.x -= speed;
       if (keys['d']) player.position.x += speed;
 
+      // 敵をプレイヤーに向かって動かす
+      enemies.forEach(enemy => {
+        const direction = new THREE.Vector3();
+        direction.subVectors(player.position, enemy.position).normalize();
+        enemy.position.add(direction.multiplyScalar(0.03));
+      });
+
+      // カメラ追従
       camera.position.x = player.position.x + 5;
       camera.position.y = player.position.y + 5;
       camera.position.z = player.position.z + 10;
@@ -67,6 +98,7 @@
 
     animate();
 
+    // ウィンドウサイズ調整
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
