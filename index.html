@@ -82,6 +82,8 @@
   <script type="module">
     import * as THREE from 'https://cdn.skypack.dev/three';
 
+    console.log('Three.js loaded:', THREE);
+
     // ゲーム状態
     let score = 0;
     let playerHealth = 100;
@@ -98,9 +100,9 @@
     );
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
+    
+    console.log('Renderer created and added to DOM');
 
     // スカイボックス
     const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
@@ -509,6 +511,7 @@
     }
 
     animate();
+    console.log('Game started');
 
     // ウィンドウサイズ調整
     window.addEventListener('resize', () => {
